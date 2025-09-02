@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import {
+  ConfigInterface,
   Folder,
   FolderCollection,
   LocalStorageInterfaceV0ToV1,
@@ -74,6 +75,11 @@ export const migrateV6 = (persistedState: LocalStorageInterfaceV6ToV7) => {
   }
   if (!persistedState.apiKey || persistedState.apiKey.length === 0) {
     persistedState.apiKey = '';
+  }
+  
+  // Ensure defaultChatConfig has model_selection
+  if (persistedState.defaultChatConfig && !('model_selection' in persistedState.defaultChatConfig)) {
+    (persistedState.defaultChatConfig as any).model_selection = 0;
   }
 };
 

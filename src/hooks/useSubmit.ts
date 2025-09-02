@@ -1,6 +1,6 @@
 import useStore from '@store/store';
 import { useTranslation } from 'react-i18next';
-import { ChatInterface, MessageInterface } from '@type/chat';
+import { ChatInterface, MessageInterface, ModelDefinition } from '@type/chat';
 import { getChatCompletion, getChatCompletionStream } from '@api/api';
 import { parseEventSource } from '@api/helper';
 import {
@@ -25,13 +25,12 @@ const useSubmit = () => {
   const generateTitle = async (
     message: MessageInterface[],
     apiKey: string,
-    apiEndpoint: string
+    apiEndpoint: string,
+    modelDef: ModelDefinition
   ): Promise<string> => {
     let data;
 
     const config = _defaultChatConfig;
-    const modelDef = modelDefs[0];
-
     (config as any).model = modelDef.model;
     try {
       if (!apiKey || apiKey.length === 0) {
@@ -205,25 +204,30 @@ const useSubmit = () => {
           content: `Generate a title in less than 6 words for the following message (language: ${i18n.language}):\n"""\nUser: ${user_message}\nAssistant: ${assistant_message}\n"""`,
         };
 
-        let title = (
-          await generateTitle([message], apiKey, apiEndpoint)
-        ).trim();
-        if (title.startsWith('"') && title.endsWith('"')) {
-          title = title.slice(1, -1);
-        }
-        const updatedChats: ChatInterface[] = JSON.parse(
-          JSON.stringify(useStore.getState().chats)
-        );
-        updatedChats[currentChatIndex].title = title;
-        updatedChats[currentChatIndex].titleSet = true;
-        setChats(updatedChats);
+        try {
+          let title = (
+            await generateTitle([message], apiKey, apiEndpoint, modelDef)
+          ).trim();
+          if (title.startsWith('"') && title.endsWith('"')) {
+            title = title.slice(1, -1);
+          }
+          const updatedChats: ChatInterface[] = JSON.parse(
+            JSON.stringify(useStore.getState().chats)
+          );
+          updatedChats[currentChatIndex].title = title;
+          updatedChats[currentChatIndex].titleSet = true;
+          setChats(updatedChats);
 
-        // update tokens used for generating title
-        if (countTotalTokens) {
-          updateTotalTokenUsed(0, [message], {
-            role: 'assistant',
-            content: title,
-          });
+          // update tokens used for generating title
+          if (countTotalTokens) {
+            updateTotalTokenUsed(0, [message], {
+              role: 'assistant',
+              content: title,
+            });
+          }
+        } catch (titleError: unknown) {
+          console.error('Failed to generate title:', titleError);
+          // Don't throw the error, just log it - title generation failure shouldn't break the chat
         }
       }
     } catch (e: unknown) {
